@@ -28,6 +28,13 @@ touches your machine and vice versa: each person runs their own export.
 
 ## Latest changes
 
+**28 Sep 2026 — select and copy**
+- Fixed: text in the app window can now be selected and copied (the window
+  had selection turned off).
+- Added: a **copy** button on every message (hover to see it), **Copy chat**
+  in the conversation header (whole chat as plain text, with speaker and time
+  labels), and a copy button on each memory note.
+
 **28 Sep 2026 — builds for Mac, automatic releases**
 - Added: `build.sh` builds `Re-Search.app` on macOS (or a Linux binary), and
   `re-search.icns` is the Mac icon.
@@ -252,6 +259,9 @@ matches per chat is the real total, not just what's shown.
 - click the chat's title row to open it at its first match
 - in the chat view, matches are highlighted throughout; **open on claude.ai ↗**
   jumps to the original, and **in project** assigns the chat to a project
+- select text anywhere and copy it as usual; hover a message for its **copy**
+  button, or use **Copy chat** in the header to copy the whole conversation as
+  plain text
 
 ## Ask (optional)
 

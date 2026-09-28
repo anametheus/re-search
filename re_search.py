@@ -968,6 +968,12 @@ nav button.on{color:var(--fg);border-bottom-color:var(--acc)}
 .msg.human{background:var(--human)}
 .msg.assistant{background:var(--asst)}
 .msg .who{font-size:11px;color:var(--muted);text-transform:uppercase;margin-bottom:4px;display:block}
+.msg{position:relative}
+.msg .copy{position:absolute;top:6px;right:8px;font-size:11px;padding:2px 8px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:5px;cursor:pointer;opacity:0;transition:opacity .15s}
+.msg:hover .copy{opacity:1}
+.msg .copy.done,.copyall.done{color:var(--acc);border-color:var(--acc)}
+.copyall{font-size:11px;padding:2px 8px;cursor:pointer;color:var(--muted)}
+#conv,#memtree,.md,.snip{user-select:text}
 .drop{border:2px dashed var(--border);border-radius:10px;padding:26px;text-align:center;color:var(--muted);margin-bottom:14px}
 .drop.over{border-color:var(--acc);color:var(--fg)}
 table{border-collapse:collapse;width:100%;font-size:13px}
@@ -1054,10 +1060,11 @@ let memData=null;
 function md(text,filter){let h=esc(text||'');if(filter){const f=foldStr(h);let out='',pos=0,i=0;const ff=foldStr(filter);while((i=f.indexOf(ff,pos))>=0){out+=h.slice(pos,i)+'<mark>'+h.slice(i,i+ff.length)+'</mark>';pos=i+ff.length;}h=out+h.slice(pos);}
  return h.split('\n').map(l=>{if(/^#{1,3} /.test(l))return `<h3>${l.replace(/^#+ /,'')}</h3>`;if(/^\s*[-*] /.test(l))return `<li>${l.replace(/^\s*[-*] /,'')}</li>`;if(l.trim()==='---')return '<hr style="border:0;border-top:1px solid var(--border)">';return l;}).join('\n').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\[\[(.+?)\]\]/g,'<i>$1</i>');}
 function memMatch(t,f){return !f||foldStr(t||'').includes(foldStr(f));}
-function note(title,content,updated,filter,open){if(!memMatch(title+'\n'+content,filter))return '';return `<div class="mnote${open?'':' closed'}"><h4>${esc(title)}${updated?`<small>${fmtDate(updated)}</small>`:''}</h4><div class="md">${md(content,filter)}</div></div>`;}
+function note(title,content,updated,filter,open){if(!memMatch(title+'\n'+content,filter))return '';return `<div class="mnote${open?'':' closed'}"><h4>${esc(title)}<small>${updated?fmtDate(updated)+' · ':''}<button class="copyall memcopy" data-text="${esc(content)}">copy</button></small></h4><div class="md">${md(content,filter)}</div></div>`;}
 function group(title,g,filter){const f=filter.trim();const notes=[g.summary?note('Summary',g.summary,null,f,!!f):'',...g.files.map(x=>note(x.path,x.content,x.updated_at,f,!!f))].join('');if(!notes)return '';const n=(g.summary?1:0)+g.files.length;return `<div class="mgroup${f?'':' closed'}"><h3>${esc(title)}<small>${n} note${n===1?'':'s'}</small></h3><div class="mbody">${notes}</div></div>`;}
 function renderMemories(){if(!memData)return;const f=$('#memq').value;const html=[group('General',memData.general,f),...memData.projects.map(p=>group(p.name,p,f))].join('');$('#memtree').innerHTML=html||'<p class="hint">'+(memData.general.summary||memData.general.files.length||memData.projects.length?'Nothing matches.':'No memories imported yet — drop your export manifest (or memories-000.zip) on the Imports tab.')+'</p>';
- document.querySelectorAll('.mgroup>h3').forEach(h=>h.onclick=()=>h.parentElement.classList.toggle('closed'));document.querySelectorAll('.mnote>h4').forEach(h=>h.onclick=()=>h.parentElement.classList.toggle('closed'));}
+ document.querySelectorAll('.mgroup>h3').forEach(h=>h.onclick=()=>h.parentElement.classList.toggle('closed'));document.querySelectorAll('.mnote>h4').forEach(h=>h.onclick=e=>{if(e.target.closest('.memcopy'))return;h.parentElement.classList.toggle('closed');});
+ document.querySelectorAll('.memcopy').forEach(b=>b.onclick=e=>{e.stopPropagation();copyText(b.dataset.text,b);});}
 async function loadMemories(){memData=await api('/api/memories');renderMemories();}
 let memTimer=null;
 
@@ -1096,9 +1103,16 @@ function hl(text){const f=foldStr(text);let ranges=[];for(const t of terms()){le
  ranges.sort((a,b)=>a[0]-b[0]);const merged=[];for(const r of ranges){if(merged.length&&r[0]<=merged[merged.length-1][1])merged[merged.length-1][1]=Math.max(merged[merged.length-1][1],r[1]);else merged.push(r);}
  let out='',pos=0;for(const [a,b] of merged){out+=esc(text.slice(pos,a))+'<mark>'+esc(text.slice(a,b))+'</mark>';pos=b;}return out+esc(text.slice(pos));}
 
+async function copyText(text,btn){let ok=false;try{await navigator.clipboard.writeText(text);ok=true;}catch(e){const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{ok=document.execCommand('copy');}catch(e2){}ta.remove();}
+ if(btn){const old=btn.textContent;btn.textContent=ok?'copied':'copy failed';btn.classList.add('done');setTimeout(()=>{btn.textContent=old;btn.classList.remove('done');},1500);}return ok;}
 async function openConv(uuid,msgUuid){current=uuid;document.querySelectorAll('.conv').forEach(el=>el.classList.toggle('active',el.dataset.uuid===uuid));show('conv');const r=await api('/api/conversation/'+uuid);if(r.error){$('#conv').innerHTML='<p>'+esc(r.error)+'</p>';return;}const c=r.conversation;
  const assign=(isMem(uuid)||isDoc(uuid))?'':` · in project: <select id="assign" style="font-size:12px;padding:2px 6px"><option value="">none</option>${projectList.map(p=>`<option value="${esc(p.uuid)}"${p.uuid===c.project_uuid?' selected':''}>${esc(p.name)}</option>`).join('')}</select>`;
- $('#conv').innerHTML=`<div id="convhead"><h2>${esc(c.name)}</h2>${c.summary?`<p class="hint" style="margin:0 0 6px">${esc(c.summary)}</p>`:''}<div class="hint">${(isMem(uuid)||isDoc(uuid))&&c.project_name?esc(c.project_name)+' · ':''}${isMem(uuid)?`memory note · ${fmtDate(c.updated_at)}`:isDoc(uuid)?`project file · ${fmtDate(c.created_at)}${c.project_uuid?` · <a href="https://claude.ai/project/${esc(c.project_uuid)}" target="_blank">open project ↗</a>`:''}`:`${fmtDate(c.created_at)} → ${fmtDate(c.updated_at)} · ${r.messages.length} messages · <a href="https://claude.ai/chat/${esc(uuid)}" target="_blank">open on claude.ai ↗</a>`}${c.project_uuid?` · <a href="https://claude.ai/project/${esc(c.project_uuid)}" target="_blank">project ↗</a>`:''}${assign}</div></div>`+r.messages.map(m=>`<div class="msg ${esc(m.sender)}" id="m-${esc(m.uuid)}"><span class="who">${m.sender==='human'?'me':m.sender==='document'?'file contents':esc(m.sender)} · ${esc((m.created_at||'').replace('T',' ').slice(0,16))}</span>${hl(m.text)}</div>`).join('');
+ $('#conv').innerHTML=`<div id="convhead"><h2>${esc(c.name)}</h2>${c.summary?`<p class="hint" style="margin:0 0 6px">${esc(c.summary)}</p>`:''}<div class="hint">${(isMem(uuid)||isDoc(uuid))&&c.project_name?esc(c.project_name)+' · ':''}${isMem(uuid)?`memory note · ${fmtDate(c.updated_at)}`:isDoc(uuid)?`project file · ${fmtDate(c.created_at)}${c.project_uuid?` · <a href="https://claude.ai/project/${esc(c.project_uuid)}" target="_blank">open project ↗</a>`:''}`:`${fmtDate(c.created_at)} → ${fmtDate(c.updated_at)} · ${r.messages.length} messages · <a href="https://claude.ai/chat/${esc(uuid)}" target="_blank">open on claude.ai ↗</a>`}${c.project_uuid?` · <a href="https://claude.ai/project/${esc(c.project_uuid)}" target="_blank">project ↗</a>`:''}${assign} · <button class="copyall" id="copyall" title="Copy the whole conversation as plain text">Copy chat</button></div></div>`+r.messages.map(m=>`<div class="msg ${esc(m.sender)}" id="m-${esc(m.uuid)}"><button class="copy" data-msg="${esc(m.uuid)}" title="Copy this message">copy</button><span class="who">${m.sender==='human'?'me':m.sender==='document'?'file contents':esc(m.sender)} · ${esc((m.created_at||'').replace('T',' ').slice(0,16))}</span>${hl(m.text)}</div>`).join('');
+ const who=x=>x==='human'?'Me':x==='assistant'?'Claude':x==='document'?'File':x;
+ const asText=()=>r.messages.map(m=>`${who(m.sender)} · ${(m.created_at||'').replace('T',' ').slice(0,16)}\n${m.text}`).join('\n\n---\n\n');
+ const chatHeader=`${c.name}\n${c.project_name?'Project: '+c.project_name+'\n':''}${c.summary?c.summary+'\n':''}\n`;
+ $('#copyall').onclick=e=>copyText(chatHeader+asText(),e.target);
+ $('#conv').querySelectorAll('.copy').forEach(b=>b.onclick=e=>{e.stopPropagation();const m=r.messages.find(x=>x.uuid===b.dataset.msg);if(m)copyText(m.text,b);});
  const sel=$('#assign');if(sel)sel.onchange=async()=>{await api('/api/assign',{method:'POST',body:JSON.stringify({uuid,project:sel.value})});await loadProjects();search();};
  let target=msgUuid?document.getElementById('m-'+msgUuid):null;
  if(target){const m=target.querySelector('mark');(m||target).scrollIntoView({block:'center'});target.classList.add('target');setTimeout(()=>target.classList.remove('target'),2500);}
@@ -1196,7 +1210,8 @@ def main():
         webview = open_ui(url, args.browser) if not args.no_browser else None
         if webview:
             UI["webview"] = webview
-            webview.create_window(APP_NAME, url, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1], min_size=(900, 600))
+            webview.create_window(APP_NAME, url, width=WINDOW_SIZE[0], height=WINDOW_SIZE[1],
+                                  min_size=(900, 600), text_select=True)
             webview.start()          # blocks until the window is closed
         else:
             while server_thread.is_alive():
