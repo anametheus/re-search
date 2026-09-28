@@ -10,10 +10,11 @@ Re-Search is an independent tool that reads the data export from Claude
 
 ## Quick start
 
-1. **Get the app.** Windows: download `Re-Search.exe` from the Releases
-   page and double-click it (Windows SmartScreen will warn once because it's
-   unsigned — "More info → Run anyway"). Mac, Linux, or if you'd rather run
-   the source: install Python from python.org, then
+1. **Get the app** from the Releases page. Windows: `Re-Search.exe` —
+   double-click it (SmartScreen warns once because it's unsigned: "More info
+   → Run anyway"). Mac: `Re-Search-macOS.zip` — unzip, then right-click
+   `Re-Search.app` → Open → Open (unsigned, so the first launch needs this).
+   Linux, or to run the source anywhere: install Python, then
    `python -m pip install pywebview` and `python re_search.py`.
 2. **Export your data** from claude.ai: Settings → Privacy → Export data. You
    get a small `manifest-….json` file.
@@ -26,6 +27,13 @@ optional Ask tab with your own key) the Claude API. Your friends' data never
 touches your machine and vice versa: each person runs their own export.
 
 ## Latest changes
+
+**28 Sep 2026 — builds for Mac, automatic releases**
+- Added: `build.sh` builds `Re-Search.app` on macOS (or a Linux binary), and
+  `re-search.icns` is the Mac icon.
+- Added: a GitHub Actions workflow that builds the Windows exe and the Mac app
+  on GitHub's own machines whenever a release is published, and attaches both
+  to it. Publishing a release no longer needs a local build.
 
 **28 Sep 2026 — renamed to Re-Search**
 - Changed: the app, exe, window, icon and data folder are now called
@@ -114,8 +122,10 @@ touches your machine and vice versa: each person runs their own export.
 ## Contents of this repository
 
 - `re_search.py` — the whole app
-- `re-search.ico` — its icon
+- `re-search.ico`, `re-search.icns` — its icon (Windows, Mac)
 - `build.cmd` — double-click on Windows to build `Re-Search.exe`
+- `build.sh` — `bash build.sh` on Mac or Linux to build `Re-Search.app` / a binary
+- `.github/workflows/release.yml` — builds both on GitHub when a release is published
 - `README.md`, `LICENSE` (MIT), `.gitignore`
 
 ## 1. Get your data out of claude.ai
@@ -163,7 +173,18 @@ neither is found, in a normal browser tab. `--browser` forces a browser tab;
 
 Go to the **Imports** tab and drop the export manifest on it (see step 1).
 
-## 3. Build a Windows .exe (optional)
+## 3. Build an app (optional)
+
+**You usually don't need to.** Publishing a release on GitHub (Releases →
+Create a new release → choose a tag such as `v1.1` → Publish, no files
+needed) starts a workflow that builds `Re-Search.exe` and `Re-Search-macOS.zip`
+on GitHub's machines and attaches them to the release within a few minutes.
+The Actions tab shows progress; it can also be run by hand there against an
+existing tag.
+
+To build locally on a Mac or Linux machine: `bash build.sh` in the repository
+folder gives `dist/Re-Search.app` (Mac) or `dist/Re-Search` (Linux). On
+Windows:
 
 Double-click `build.cmd` (it must sit next to `re_search.py` and
 `re-search.ico`). It says which Python it is using, installs PyInstaller

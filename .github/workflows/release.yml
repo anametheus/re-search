@@ -1,0 +1,52 @@
+name: Build release binaries
+
+# Runs when a release is published on GitHub, builds the Windows exe and the
+# macOS app, and attaches both to that release. Can also be run by hand from
+# the Actions tab against an existing release tag.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach builds to (e.g. v1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip pyinstaller pywebview
+          python -m PyInstaller --onefile --windowed --icon re-search.ico --collect-all webview --name Re-Search --clean --noconfirm re_search.py
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || inputs.tag }}
+          files: dist/Re-Search.exe
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip pyinstaller pywebview
+          python -m PyInstaller --onefile --windowed --icon re-search.icns --osx-bundle-identifier com.anametheus.re-search --collect-all webview --name Re-Search --clean --noconfirm re_search.py
+          cd dist && ditto -c -k --keepParent Re-Search.app Re-Search-macOS.zip
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || inputs.tag }}
+          files: dist/Re-Search-macOS.zip
