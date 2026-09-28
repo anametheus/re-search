@@ -23,6 +23,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Stamp version
+        shell: bash
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          python - "$TAG" <<'PY'
+          import re, sys
+          v = sys.argv[1].lstrip("v")
+          p = "re_search.py"; s = open(p, encoding="utf-8").read()
+          s, n = re.subn(r'^APP_VERSION = ".*?"', f'APP_VERSION = "{v}"', s, count=1, flags=re.M)
+          assert n == 1, "APP_VERSION line not found"
+          open(p, "w", encoding="utf-8").write(s); print("stamped", v)
+          PY
       - name: Build
         run: |
           python -m pip install --upgrade pip pyinstaller pywebview
@@ -40,6 +52,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Stamp version
+        shell: bash
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          python - "$TAG" <<'PY'
+          import re, sys
+          v = sys.argv[1].lstrip("v")
+          p = "re_search.py"; s = open(p, encoding="utf-8").read()
+          s, n = re.subn(r'^APP_VERSION = ".*?"', f'APP_VERSION = "{v}"', s, count=1, flags=re.M)
+          assert n == 1, "APP_VERSION line not found"
+          open(p, "w", encoding="utf-8").write(s); print("stamped", v)
+          PY
       - name: Build
         run: |
           python -m pip install --upgrade pip pyinstaller pywebview

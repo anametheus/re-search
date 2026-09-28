@@ -37,6 +37,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 APP_NAME = "Re-Search"
+APP_VERSION = "dev"  # replaced with the release tag by the build workflow
+RELEASES_API = "https://api.github.com/repos/anametheus/re-search/releases/latest"
+RELEASES_PAGE = "https://github.com/anametheus/re-search/releases"
+UPDATE = {"checked": False, "latest": None, "url": RELEASES_PAGE, "newer": False}
 OLD_APP_NAMES = ("ClaudeSearch",)  # data folders from earlier versions, moved on first run
 HOST, DEFAULT_PORT = "127.0.0.1", 8765
 API_URL = "https://api.anthropic.com/v1/messages"
@@ -680,6 +684,30 @@ def build_match(q, force_quote=False):
     return " ".join(out) or '""'
 
 
+def version_tuple(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v or "")) or (0,)
+
+
+def check_for_update():
+    """Ask GitHub for the latest release tag (one small request, nothing sent).
+    Only compares when this build carries a real version number."""
+    UPDATE["checked"] = True
+    if APP_VERSION == "dev":
+        return
+    try:
+        req = urllib.request.Request(RELEASES_API, headers={"User-Agent": f"{APP_NAME}/{APP_VERSION}",
+                                                           "Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        tag = str(data.get("tag_name") or "")
+        UPDATE["latest"] = tag.lstrip("v") or None
+        if data.get("html_url", "").startswith("https://github.com/"):
+            UPDATE["url"] = data["html_url"]
+        UPDATE["newer"] = version_tuple(tag) > version_tuple(APP_VERSION)
+    except Exception as e:  # noqa - offline or rate-limited: just no notice
+        print(f"update check skipped: {e}")
+
+
 def call_claude(api_key, model, system, user, max_tokens=2000):
     body = json.dumps({
         "model": model, "max_tokens": max_tokens, "system": system,
@@ -843,6 +871,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(s.memories())
             elif u.path == "/api/stats":
                 self._json(s.stats())
+            elif u.path == "/api/version":
+                if qs.get("recheck"):
+                    check_for_update()
+                self._json({"version": APP_VERSION, **UPDATE})
             elif u.path == "/api/settings":
                 key = s.get_setting("api_key", "")
                 self._json({"has_key": bool(key), "key_hint": (key[:7] + "…" + key[-4:]) if key else "",
@@ -1005,7 +1037,7 @@ code{background:var(--panel);padding:1px 5px;border-radius:4px}
 </style></head><body>
 <div id="left">
  <header>
-  <h1>Re-Search <small id="count"></small></h1>
+  <h1>Re-Search <small id="count"></small><a id="update" href="#" target="_blank" style="display:none;font-size:12px;font-weight:normal;color:var(--acc);border:1px solid var(--acc);border-radius:10px;padding:0 8px;text-decoration:none"></a></h1>
   <input id="q" placeholder='Search all conversations…  ("exact phrase", word OR word, NOT word, prefix*)' autofocus>
   <div class="filters">
    <select id="project"><option value="">All projects</option></select>
@@ -1045,6 +1077,7 @@ code{background:var(--panel);padding:1px 5px;border-radius:4px}
   <div class="row"><label>Model</label><input id="model"></div>
   <div class="row"><button class="btn" id="savesettings">Save</button><span id="savemsg" class="hint"></span></div>
   <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
+  <div class="row"><span id="verline" class="hint"></span><button id="recheck" style="font-size:12px;padding:3px 10px">Check for updates</button></div>
   <div class="row"><button id="quit">Quit Re-Search</button><span class="hint">Stops the app. Closing the window does the same.</span></div>
  </div>
 </div>
@@ -1151,12 +1184,16 @@ const drop=$('#drop');drop.ondragover=e=>{e.preventDefault();drop.classList.add(
 $('#rescan').onclick=async()=>{const r=await api('/api/rescan',{method:'POST',body:'{}'});logResults(r.results||[]);memData=null;await Promise.all([loadStats(),loadProjects()]);search();};
 $('#reimport').onclick=async()=>{if(!confirm('Re-read every file in the imports folder?'))return;$('#stats').innerHTML='<p>Re-importing…</p>';await api('/api/rescan',{method:'POST',body:'{"force":true}'});await Promise.all([loadStats(),loadProjects()]);search();};
 
-async function loadSettings(){const s=await api('/api/settings');$('#keyhint').textContent=s.has_key?'saved: '+s.key_hint:'no key saved';$('#model').value=s.model;}
+async function loadVersion(recheck){const v=await api('/api/version'+(recheck?'?recheck=1':''));const a=$('#update');
+ if(v.newer){a.textContent=`${v.latest} available — download`;a.href=v.url;a.style.display='inline-block';}else a.style.display='none';
+ $('#verline').textContent=`Version ${v.version}`+(v.version==='dev'?' (running from source; update checks are off)':v.newer?` — ${v.latest} is available`:v.latest?` — up to date`:v.checked?` — could not reach GitHub to check`:' — checking…');return v;}
+$('#recheck').onclick=async()=>{$('#verline').textContent='Checking…';await loadVersion(true);};
+async function loadSettings(){loadVersion(false);const s=await api('/api/settings');$('#keyhint').textContent=s.has_key?'saved: '+s.key_hint:'no key saved';$('#model').value=s.model;}
 $('#quit').onclick=async()=>{if(!confirm('Quit Re-Search?'))return;try{await api('/api/quit',{method:'POST',body:'{}'});}catch(e){}document.body.innerHTML='<p style="padding:40px;color:var(--muted)">Re-Search has stopped. You can close this window.</p>';};
 $('#savesettings').onclick=async()=>{const body={model:$('#model').value};if($('#apikey').value)body.api_key=$('#apikey').value;await api('/api/settings',{method:'POST',body:JSON.stringify(body)});$('#apikey').value='';$('#savemsg').textContent='Saved.';loadSettings();};
 $('#askbtn').onclick=async()=>{const q=$('#question').value.trim();if(!q)return;$('#askbtn').disabled=true;$('#answer').textContent='Thinking…';$('#sources').innerHTML='';const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q,project:$('#project').value})});$('#askbtn').disabled=false;if(r.error){$('#answer').textContent=r.error;return;}$('#answer').textContent=r.answer;$('#sources').innerHTML=r.sources.length?'Drawn from: '+r.sources.map(s=>`<a href="#" onclick="openConv('${esc(s.uuid)}');return false" style="color:var(--acc)">${esc(s.name)}</a>`).join(' · '):'';};
 
-loadProjects().then(search);loadStats();
+loadProjects().then(search);loadStats();setTimeout(()=>loadVersion(false),1500);
 </script></body></html>
 """
 
@@ -1219,6 +1256,7 @@ def main():
     Handler.store, Handler.imports_dir = store, imports_dir
     stop = threading.Event()
     threading.Thread(target=watcher, args=(store, imports_dir, stop), daemon=True).start()
+    threading.Thread(target=check_for_update, daemon=True).start()
     srv = ThreadingHTTPServer((HOST, args.port), Handler)
     url = f"http://{HOST}:{args.port}/"
     print(f"Serving on {url}  (Ctrl+C to stop)")

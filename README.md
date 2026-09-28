@@ -28,6 +28,16 @@ touches your machine and vice versa: each person runs their own export.
 
 ## Latest changes
 
+**28 Sep 2026 — update notice**
+- Added: on start the app asks GitHub for the latest release (one small
+  request; nothing about you is sent). If it's newer than the running
+  version, a "x.y available — download" link appears in the header; it opens
+  the release page and you replace the exe yourself. Settings shows the
+  running version and has a "Check for updates" button. Runs from source
+  report version "dev" and skip the check.
+- Changed: the release workflow stamps the release tag into the build as its
+  version number.
+
 **28 Sep 2026 — select and copy**
 - Fixed: text in the app window can now be selected and copied (the window
   had selection turned off).
@@ -235,6 +245,14 @@ in the dynamic link library Re-Search.exe", the build itself is broken
 - **A manifest link "requires being signed in" or "has already been used"** —
   open that `export_url` in your browser and drop the zip on the app, or
   request a fresh export. Each link works exactly once.
+
+## Updating
+
+The app checks GitHub for a newer release when it starts and shows a
+"download" link in the header if there is one (Settings shows the running
+version). Updating is manual and deliberate: download the new file from the
+release page and replace the old one. Your data lives in the data folder, not
+next to the app, so it is never affected.
 
 ## Searching
 
