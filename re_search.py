@@ -974,6 +974,9 @@ nav button.on{color:var(--fg);border-bottom-color:var(--acc)}
 .msg .copy.done,.copyall.done{color:var(--acc);border-color:var(--acc)}
 .copyall{font-size:11px;padding:2px 8px;cursor:pointer;color:var(--muted)}
 #conv,#memtree,.md,.snip{user-select:text}
+#ctx{position:fixed;z-index:1000;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:0 6px 24px rgba(0,0,0,.5);min-width:160px;display:none}
+#ctx div{padding:6px 12px;border-radius:5px;cursor:pointer;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+#ctx div:hover{background:var(--bg)}
 .drop{border:2px dashed var(--border);border-radius:10px;padding:26px;text-align:center;color:var(--muted);margin-bottom:14px}
 .drop.over{border-color:var(--acc);color:var(--fg)}
 table{border-collapse:collapse;width:100%;font-size:13px}
@@ -1014,6 +1017,7 @@ code{background:var(--panel);padding:1px 5px;border-radius:4px}
  <div id="bulk" style="display:none;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel);font-size:13px;align-items:center;gap:8px"><span id="bulkn"></span> · assign to <select id="bulkproj" style="font-size:12px;padding:2px 6px"><option value="">none</option></select> <button class="btn" id="bulkgo" style="padding:3px 10px">Apply</button> <a href="#" id="bulkclear" style="color:var(--muted)">clear</a></div>
  <div id="results"></div>
 </div>
+<div id="ctx"></div>
 <div id="right">
  <nav><button data-p="conv" class="on">Conversation</button><button data-p="ask">Ask</button><button data-p="import">Imports</button><button data-p="memories">Memories</button><button data-p="settings">Settings</button></nav>
  <div id="conv" class="pane on"><p class="hint">Search on the left, then click a conversation to read it here. Matches are highlighted; the link opens the original on claude.ai.</p><p class="hint">Claude's export doesn't record which project a chat belongs to, so project counts start at 0. Assign chats with the "in project" selector at the top of a conversation, or tick several in the results list and use the bar that appears. Assignments are kept across re-imports.</p></div>
@@ -1103,6 +1107,20 @@ function hl(text){const f=foldStr(text);let ranges=[];for(const t of terms()){le
  ranges.sort((a,b)=>a[0]-b[0]);const merged=[];for(const r of ranges){if(merged.length&&r[0]<=merged[merged.length-1][1])merged[merged.length-1][1]=Math.max(merged[merged.length-1][1],r[1]);else merged.push(r);}
  let out='',pos=0;for(const [a,b] of merged){out+=esc(text.slice(pos,a))+'<mark>'+esc(text.slice(a,b))+'</mark>';pos=b;}return out+esc(text.slice(pos));}
 
+// Right-click menu inside the app window (pywebview disables the built-in one).
+const ctx=$('#ctx');
+function hideCtx(){ctx.style.display='none';}
+document.addEventListener('contextmenu',e=>{if(!window.pywebview)return;const t=e.target;if(t.closest('input,textarea'))return;
+ const selText=(window.getSelection()||'').toString().trim();e.preventDefault();const items=[];
+ if(selText){items.push(['Copy',()=>copyText(selText)]);const q=selText.length>40?selText.slice(0,40)+'…':selText;items.push([`Search for "${q}"`,()=>{$('#q').value=selText;show('conv');search();$('#q').focus();}]);}
+ const msg=t.closest('.msg');if(msg){const b=msg.querySelector('.copy');if(b)items.push(['Copy this message',()=>b.click()]);}
+ if(t.closest('#conv')&&$('#copyall'))items.push(['Copy whole chat',()=>$('#copyall').click()]);
+ if(!items.length)return;ctx.innerHTML=items.map((it,i)=>`<div data-i="${i}">${esc(it[0])}</div>`).join('');
+ ctx.querySelectorAll('div').forEach(d=>d.onclick=()=>{hideCtx();items[+d.dataset.i][1]();});
+ ctx.style.display='block';const w=ctx.offsetWidth,h=ctx.offsetHeight;ctx.style.left=Math.min(e.clientX,innerWidth-w-8)+'px';ctx.style.top=Math.min(e.clientY,innerHeight-h-8)+'px';});
+document.addEventListener('click',e=>{if(!e.target.closest('#ctx'))hideCtx();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')hideCtx();});
+window.addEventListener('blur',hideCtx);
 async function copyText(text,btn){let ok=false;try{await navigator.clipboard.writeText(text);ok=true;}catch(e){const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{ok=document.execCommand('copy');}catch(e2){}ta.remove();}
  if(btn){const old=btn.textContent;btn.textContent=ok?'copied':'copy failed';btn.classList.add('done');setTimeout(()=>{btn.textContent=old;btn.classList.remove('done');},1500);}return ok;}
 async function openConv(uuid,msgUuid){current=uuid;document.querySelectorAll('.conv').forEach(el=>el.classList.toggle('active',el.dataset.uuid===uuid));show('conv');const r=await api('/api/conversation/'+uuid);if(r.error){$('#conv').innerHTML='<p>'+esc(r.error)+'</p>';return;}const c=r.conversation;
