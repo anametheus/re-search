@@ -1,0 +1,18 @@
+# PyInstaller output
+build/
+dist/
+*.spec
+
+# Python
+__pycache__/
+*.pyc
+
+# Never commit your own data: exports, indexes, logs
+imports/
+*.zip
+manifest-*.json
+conversations*.json
+projects*.json
+memories*.json
+index.db*
+log.txt
