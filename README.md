@@ -36,7 +36,7 @@ touches your machine and vice versa: each person runs their own export.
   labels), and a copy button on each memory note.
 - Added: a right-click menu inside the app window (the built-in one is
   disabled there): Copy, Search for the selected text, Copy this message,
-  Copy whole chat.
+  Copy whole chat. Hovered items use the same orange as search highlights.
 
 **28 Sep 2026 — builds for Mac, automatic releases**
 - Added: `build.sh` builds `Re-Search.app` on macOS (or a Linux binary), and
